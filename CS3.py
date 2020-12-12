@@ -15,14 +15,40 @@ import KMedoids
 import itertools
 
 
-def calculateWaitingTime(path, nodesInSolution, service_costs, redsCoordinates, numberOfReds, distanceMatrix):
-    firstNodeToExclude = path[1]
+def calculateScore(nodesInSolution, greenNodes, scores):
+    totalScore = 0
+    for n in nodesInSolution:
+        if n in greenNodes:
+            totalScore += scores[n - 2]
+
+    return totalScore
+
+
+def calculateTotalTime(path, nodesInSolution, service_costs, distanceMatrix, startNode, endNode):
+    for n1, n2 in path.items():
+        if n1 == startNode:
+            firstNodeToExclude = n2
+        if n2 == endNode:
+            secondNodeToExclude = n1
+
+    time = 0
+    for (i, j) in path.items():
+        time += distanceMatrix[i - 1][j - 1]
 
     for n in nodesInSolution:
-        if n not in path:
-            for i, j in path.items():
-                if j == n:
-                    secondNodeToExclude = i
+        if n != firstNodeToExclude and n != secondNodeToExclude:
+            time += service_costs[n - 1]
+
+    return time
+
+
+def calculateWaitingTime(path, nodesInSolution, service_costs, redsCoordinates, numberOfReds,
+                         distanceMatrix, startNode, endNode):
+    for n1, n2 in path.items():
+        if n1 == startNode:
+            firstNodeToExclude = n2
+        if n2 == endNode:
+            secondNodeToExclude = n1
 
     currentNode = 1
     timeUntilLastRed = 0
@@ -45,103 +71,181 @@ def calculateWaitingTime(path, nodesInSolution, service_costs, redsCoordinates, 
     return timeUntilLastRed
 
 
-def interClusterMoveRed(tours, redNodes, waitingTimes, service_costs, distanceMatrix):
-    redsInCluster = {}
-    bestTour_i = None
-    bestTour_j = None
+def swapHospitals(tours, hospitalNodes, service_costs, distanceMatrix, tmax, waitingTimes, totalTimes,
+                  hospitalsInSolution, redsInSolution, redNodes, startNode, endNode):
+    min_ = math.inf
+    swap = None
+    totalHospitalInSolution = []
+
+    for t in hospitalsInSolution:
+        for h in hospitalsInSolution[t]:
+            totalHospitalInSolution.append(h)
+
+    hospitalsNotInSolution = list(set(hospitalNodes.keys()) - set(totalHospitalInSolution))
+
+    for h1 in totalHospitalInSolution:
+        for h2 in hospitalsNotInSolution:
+            for t in hospitalsInSolution:
+                if h1 in hospitalsInSolution[t]:
+                    newTime = teamTotalTime[t]
+
+                    for n1, n2 in tours[t]:
+                        if n2 == h1:
+                            prev = n1
+                        if n1 == h1:
+                            next = n2
+
+                    gap = (distanceMatrix[prev - 1][h2 - 1] + distanceMatrix[h2 - 1][next - 1] + service_costs[
+                        h2 - 1]) - (distanceMatrix[prev - 1][h1 - 1] + distanceMatrix[h1 - 1][next - 1] + service_costs[
+                        h1 - 1])
+
+                    newTime = newTime + gap
+
+                    if newTime <= tmax:
+                        if min_ > newTime:
+                            min_ = newTime
+                            swap = (h2, h1, t)
+
+    if swap is not None:
+        newTour = []
+        path = {}
+        nodesInSolution = []
+
+        for n1, n2 in tours[swap[2]]:
+            i = n1
+            j = n2
+
+            if n2 == swap[1]:
+                j = swap[0]
+            if n1 == swap[1]:
+                i = swap[0]
+
+            if i not in nodesInSolution:
+                nodesInSolution.append(i)
+            if j not in nodesInSolution:
+                nodesInSolution.append(j)
+
+            path[i] = j
+            newTour.append((i, j))
+
+        hospitalsInSolution[swap[2]].append(swap[0])
+        hospitalsInSolution[swap[2]].remove(swap[1])
+        tours[swap[2]] = newTour
+        teamTotalTime[swap[2]] = min_
+        waitingTimes[swap[2]] = calculateWaitingTime(path, nodesInSolution, service_costs, redNodes,
+                                                     len(redsInSolution[swap[2]]), distanceMatrix, startNode, endNode)
+
+    return tours, waitingTimes, teamTotalTime, swap
+
+
+def interClusterMoveRed(tours, redNodes, hospitalNodes, waitingTimes, totalTimes, service_costs, distanceMatrix, tmax,
+                        startNode, endNode, redsInSolutionn, hospitalsInSolution):
+    bestTour_t1 = bestTour_t2 = None
+    swap = None
 
     minReds = int(len(redNodes) / len(tours))
     maxReds = minReds + 1
-
-    for t in range(0, len(tours)):
-        redsInCluster[t] = []
-        for (i, j) in tours[t]:
-            if i in redNodes.keys():
-                redsInCluster[t].append(i)
 
     min_ = math.inf
     for t1 in range(0, len(tours)):
         for t2 in range(0, len(tours)):
             if t1 != t2:
-                if len(redsInCluster[t1]) == minReds and len(redsInCluster[t2]) == maxReds:
-                    path_i = {}
-                    previous_i = {}
-                    path_j = {}
-                    previous_j = {}
+                if len(redsInSolution[t1]) == minReds and len(redsInSolution[t2]) == maxReds:
+                    path_t1 = {}
+                    previous_t1 = {}
+                    path_t2 = {}
+                    previous_t2 = {}
 
                     for (n1, n2) in tours[t1]:
-                        path_i[n1] = n2
-                        previous_i[n2] = n1
+                        path_t1[n1] = n2
+                        previous_t1[n2] = n1
 
                     for (n1, n2) in tours[t2]:
-                        path_j[n1] = n2
-                        previous_j[n2] = n1
+                        path_t2[n1] = n2
+                        previous_t2[n2] = n1
 
-                    for red1 in redsInCluster[t1]:
-                        for red2 in redsInCluster[t2]:
-                            p_i = path_i.copy()
-                            p_j = path_j.copy()
+                    for h1 in hospitalsInSolution[t1]:
+                        for red2 in redsInSolution[t2]:
+                            p_t1 = path_t1.copy()
+                            p_t2 = path_t2.copy()
 
-                            p_i[p_j[red2]] = red1
-                            p_i[previous_i[red1]] = red2
-                            p_i[red2] = p_j[red2]
-                            p_j[previous_j[red2]] = p_j[p_j[red2]]
-                            del p_j[p_j[red2]]
-                            del p_j[red2]
+                            p_t1[p_t2[red2]] = p_t1[h1]
+                            p_t1[h1] = red2
+                            p_t1[red2] = p_t2[red2]
+                            p_t2[previous_t2[red2]] = p_t2[p_t2[red2]]
+                            del p_t2[p_t2[red2]]
+                            del p_t2[red2]
 
                             nodesInSolution_t1 = []
-                            for n1, n2 in p_i.items():
+                            for n1, n2 in p_t1.items():
                                 if n1 not in nodesInSolution_t1:
                                     nodesInSolution_t1.append(n1)
                                 if n2 not in nodesInSolution_t1:
                                     nodesInSolution_t1.append(n2)
 
                             nodesInSolution_t2 = []
-                            for n1, n2 in p_j.items():
+                            for n1, n2 in p_t2.items():
                                 if n1 not in nodesInSolution_t2:
                                     nodesInSolution_t2.append(n1)
                                 if n2 not in nodesInSolution_t2:
                                     nodesInSolution_t2.append(n2)
 
-                            newWaitingTime_i = calculateWaitingTime(p_i, nodesInSolution_t1, service_costs, redNodes,
-                                                                    len(redsInCluster[t1]) + 1,
-                                                                    distanceMatrix)
+                            mewTime_t1 = calculateTotalTime(p_t1, nodesInSolution_t1, service_costs, distanceMatrix,
+                                                            startNode,
+                                                            endNode)
+                            newTime_t2 = calculateTotalTime(p_t2, nodesInSolution_t2, service_costs, distanceMatrix,
+                                                            startNode,
+                                                            endNode)
 
-                            newWaitingTime_j = calculateWaitingTime(p_j, nodesInSolution_t2, service_costs, redNodes,
-                                                                    len(redsInCluster[t2]) - 1,
-                                                                    distanceMatrix)
+                            if mewTime_t1 <= tmax and newTime_t2 <= tmax:
+                                newWaitingTime_t1 = calculateWaitingTime(p_t1, nodesInSolution_t1, service_costs,
+                                                                         redNodes,
+                                                                         len(redsInSolution[t1]) + 1,
+                                                                         distanceMatrix, startNode, endNode)
 
-                            if newWaitingTime_i + newWaitingTime_j < min_:
-                                min_ = newWaitingTime_i + newWaitingTime_j
-                                w_i = newWaitingTime_i
-                                w_j = newWaitingTime_j
-                                bestTour_i = p_i
-                                bestTour_j = p_j
-                                i_ = t1
-                                j_ = t2
+                                newWaitingTime_t2 = calculateWaitingTime(p_t2, nodesInSolution_t2, service_costs,
+                                                                         redNodes,
+                                                                         len(redsInSolution[t2]) - 1,
+                                                                         distanceMatrix, startNode, endNode)
 
-    if bestTour_i != None and bestTour_j != None:
-        newTour_i = []
+                                if newWaitingTime_t1 + newWaitingTime_t2 < min_:
+                                    min_ = newWaitingTime_t1 + newWaitingTime_t2
+                                    w_t1 = newWaitingTime_t1
+                                    w_t2 = newWaitingTime_t2
+                                    bestTour_t1 = p_t1
+                                    bestTour_t2 = p_t2
+                                    newTotalTime_t1 = mewTime_t1
+                                    newTotalTime_t2 = newTime_t2
+                                    swap = (red2, t2, t1)
+                                    t1_ = t1
+                                    t2_ = t2
 
-        for n1, n2 in bestTour_i.items():
-            newTour_i.append((n1, n2))
+    if bestTour_t1 is not None and bestTour_t2 is not None:
+        newTour_t1 = []
+        for n1, n2 in bestTour_t1.items():
+            newTour_t1.append((n1, n2))
 
-        newTour_j = []
-        for n1, n2 in bestTour_j.items():
-            print(str(n1) + " " + str(n2))
-            print(distanceMatrix[n1 - 1][n2 - 1])
-            newTour_j.append((n1, n2))
+        newTour_t2 = []
+        for n1, n2 in bestTour_t2.items():
+            newTour_t2.append((n1, n2))
 
-        tours[i_] = newTour_i
-        tours[j_] = newTour_j
-        waitingTimes[i_] = w_i
-        waitingTimes[j_] = w_j
+        tours[t1_] = newTour_t1
+        tours[t2_] = newTour_t2
+        waitingTimes[t1_] = w_t1
+        waitingTimes[t2_] = w_t2
+        totalTimes[t1_] = newTotalTime_t1
+        totalTimes[t2_] = newTotalTime_t2
+        redsInSolution[swap[2]].append(swap[0])
+        redsInSolution[swap[1]].remove(swap[0])
 
-    return tours, waitingTimes
+    return tours, waitingTimes, totalTimes, swap
 
 
-def interClusterSwapReds(tours, redNodes, waitingTimes, service_costs, distanceMatrix):
+def interClusterSwapReds(tours, redNodes, waitingTimes, totalTimes, service_costs, distanceMatrix, tmax, startNode,
+                         endNode, redsInSolution):
     subsets = list(itertools.combinations(range(0, len(tours)), 2))
+    bestTour_i = bestTour_j = None
+    swap = None
 
     min_ = math.inf
     for (i, j) in subsets:
@@ -183,54 +287,73 @@ def interClusterSwapReds(tours, redNodes, waitingTimes, service_costs, distanceM
                 del p_j[red2]
 
                 nodesInSolution_i = []
-                for n1, n2 in tours[i]:
+                for n1, n2 in p_i.items():
                     if n1 not in nodesInSolution_i:
                         nodesInSolution_i.append(n1)
                     if n2 not in nodesInSolution_i:
                         nodesInSolution_i.append(n2)
 
                 nodesInSolution_j = []
-                for n1, n2 in tours[j]:
+                for n1, n2 in p_j.items():
                     if n1 not in nodesInSolution_j:
                         nodesInSolution_j.append(n1)
                     if n2 not in nodesInSolution_j:
                         nodesInSolution_j.append(n2)
 
-                newWaitingTime_i = calculateWaitingTime(p_i, nodesInSolution_i, service_costs, redNodes, len(reds_i),
-                                                        distanceMatrix)
+                mewTime_i = calculateTotalTime(p_i, nodesInSolution_i, service_costs, distanceMatrix, startNode,
+                                               endNode)
+                newTime_j = calculateTotalTime(p_j, nodesInSolution_j, service_costs, distanceMatrix, startNode,
+                                               endNode)
 
-                newWaitingTime_j = calculateWaitingTime(p_j, nodesInSolution_j, service_costs, redNodes, len(reds_j),
-                                                        distanceMatrix)
+                if mewTime_i <= tmax and newTime_j <= tmax:
+                    newWaitingTime_i = calculateWaitingTime(p_i, nodesInSolution_i, service_costs, redNodes,
+                                                            len(reds_i), distanceMatrix, startNode, endNode)
 
-                if newWaitingTime_i + newWaitingTime_j < min_:
-                    min_ = newWaitingTime_i + newWaitingTime_j
-                    w_i = newWaitingTime_i
-                    w_j = newWaitingTime_j
-                    bestTour_i = p_i
-                    bestTour_j = p_j
-                    i_ = i
-                    j_ = j
+                    newWaitingTime_j = calculateWaitingTime(p_j, nodesInSolution_j, service_costs, redNodes,
+                                                            len(reds_j), distanceMatrix, startNode, endNode)
 
-    newTour_i = []
-    for n1, n2 in bestTour_i.items():
-        newTour_i.append((n1, n2))
+                    if newWaitingTime_i + newWaitingTime_j < min_:
+                        min_ = newWaitingTime_i + newWaitingTime_j
+                        w_i = newWaitingTime_i
+                        w_j = newWaitingTime_j
+                        bestTour_i = p_i
+                        bestTour_j = p_j
+                        newTotalTime_i = mewTime_i
+                        newTotalTime_j = newTime_j
+                        swap = ((red1, i, j), (red2, j, i))
+                        i_ = i
+                        j_ = j
 
-    newTour_j = []
-    for n1, n2 in bestTour_j.items():
-        newTour_j.append((n1, n2))
+    if bestTour_i is not None and bestTour_j is not None:
+        newTour_i = []
+        for n1, n2 in bestTour_i.items():
+            newTour_i.append((n1, n2))
 
-    tours[i_] = newTour_i
-    tours[j_] = newTour_j
-    waitingTimes[i_] = w_i
-    waitingTimes[j_] = w_j
+        newTour_j = []
+        for n1, n2 in bestTour_j.items():
+            newTour_j.append((n1, n2))
 
-    return tours, waitingTimes
+        tours[i_] = newTour_i
+        tours[j_] = newTour_j
+        waitingTimes[i_] = w_i
+        waitingTimes[j_] = w_j
+        totalTimes[i_] = newTotalTime_i
+        totalTimes[j_] = newTotalTime_j
+        redsInSolution[swap[0][2]].append(swap[0][0])
+        redsInSolution[swap[1][2]].append(swap[1][0])
+        redsInSolution[swap[0][1]].remove(swap[0][0])
+        redsInSolution[swap[1][1]].remove(swap[1][0])
+
+    return tours, waitingTimes, totalTimes, swap
 
 
-def intraClusterSwapReds(tour, redNodes, greenNodes, waitingTime, service_costs, distanceMatrix):
+def intraClusterSwapReds(tour, redNodes, waitingTime, totalTime, service_costs, distanceMatrix, tmax, startNode,
+                         endNode):
     path = {}
     previous = {}
     bestTour = None
+    newTotalTime = totalTime
+    newTour = tour
 
     for (i, j) in tour:
         path[i] = j
@@ -259,22 +382,23 @@ def intraClusterSwapReds(tour, redNodes, greenNodes, waitingTime, service_costs,
             if n2 not in nodesInSolution:
                 nodesInSolution.append(n2)
 
-        newWaitingTime = calculateWaitingTime(p, nodesInSolution, service_costs, redNodes, len(reds), distanceMatrix)
+        tt = calculateTotalTime(p, nodesInSolution, service_costs, distanceMatrix, startNode, endNode)
 
-        if waitingTime > newWaitingTime:
-            waitingTime = newWaitingTime
-            bestTour = p
+        if tt <= tmax:
+            newWaitingTime = calculateWaitingTime(p, nodesInSolution, service_costs, redNodes, len(reds),
+                                                  distanceMatrix, startNode, endNode)
+
+            if waitingTime > newWaitingTime:
+                newTotalTime = tt
+                waitingTime = newWaitingTime
+                bestTour = p
 
     if bestTour is not None:
         newTour = []
+        for n1, n2 in bestTour.items():
+            newTour.append((n1, n2))
 
-        for i, j in bestTour.items():
-            newTour.append((i, j))
-
-    else:
-        newTour = tour
-
-    return newTour, waitingTime
+    return newTour, waitingTime, newTotalTime
 
 
 def destroyTours(currentSolution, totalCosts, tourProfits, packingCosts, service_cost, profits,
@@ -375,21 +499,80 @@ def increaseTour(tmax, tour, totalCost, profit, travellingTimesMatrix, service_c
         return None
 
 
-def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNodes, waitingTimes, distanceMatrix):
-    print("IntraCluster")
-    for i in range(0, len(tours)):
-        tours[i], waitingTimes[i] = intraClusterSwapReds(tours[i], redNodes, greenNodes, waitingTimes[i],
-                                                         service_costs, distanceMatrix)
-        print(tours[i])
-        print(waitingTimes[i])
+def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNodes, waitingTimes, distanceMatrix,
+                tmax, greensInSolution, redsInSolution, hospitalsInSolution, teamScores, teamTotalTimes, startNode,
+                endNode):
+    print(tours)
+    print(waitingTimes)
+    print(hospitalsInSolution)
+    print(redsInSolution)
+    print(teamTotalTime)
 
-    print("InterCluster")
-    tours, waitingTimes = interClusterSwapReds(tours, redNodes, waitingTimes, service_costs, distanceMatrix)
+    # for i in range(0, len(tours)):
+    #     tours[i], waitingTimes[i], teamTotalTimes[i] = intraClusterSwapReds(tours[i], redNodes, waitingTimes[i],
+    #                                                                         teamTotalTimes[i], service_costs,
+    #                                                                         distanceMatrix, tmax, startNode, endNode)
+    #     print(tours[i])
+    #     print(waitingTimes[i])
+    #     print(teamTotalTimes[i])
+
+    # tours, waitingTimes, teamTotalTimes, swap = interClusterSwapReds(tours, redNodes, waitingTimes, teamTotalTimes,
+    #                                                                  service_costs, distanceMatrix, tmax, startNode,
+    #                                                                  endNode, redsInSolution)
+    # print(tours)
+    # print(waitingTimes)
+    # print(redsInSolution)
+    # print(teamTotalTimes)
+
+    # tours, waitingTimes, teamTotalTimes, swap = interClusterMoveRed(tours, redNodes, hospitalNodes, waitingTimes,
+    #                                                                 teamTotalTimes, service_costs, distanceMatrix, tmax,
+    #                                                                 startNode, endNode, redsInSolution, hospitalsInSolution)
+    # print(tours)
+    # print(waitingTimes)
+    # print(redsInSolution)
+    # print(teamTotalTimes)
+
+    # tours, waitingTimes, teamTotalTimes, swap = swapHospitals(tours, hospitalNodes, service_costs, distanceMatrix,
+    #                                                           tmax, waitingTimes, teamTotalTimes, hospitalsInSolution,
+    #                                                           redsInSolution, redNodes, startNode, endNode)
+    #
+    # print(tours)
+    # print(waitingTimes)
+    # print(hospitalsInSolution)
+    # print(teamTotalTime)
+
+    for i in range(5):
+        for i in range(0, len(tours)):
+            tours[i], waitingTimes[i], teamTotalTimes[i] = intraClusterSwapReds(tours[i], redNodes, waitingTimes[i],
+                                                                                teamTotalTimes[i], service_costs,
+                                                                                distanceMatrix, tmax, startNode,
+                                                                                endNode)
+
+        tours, waitingTimes, teamTotalTimes, swap = interClusterMoveRed(tours, redNodes, hospitalNodes,
+                                                                        waitingTimes,
+                                                                        teamTotalTimes, service_costs,
+                                                                        distanceMatrix, tmax,
+                                                                        startNode, endNode, redsInSolution,
+                                                                        hospitalsInSolution)
+
+        tours, waitingTimes, teamTotalTimes, swap = interClusterMoveRed(tours, redNodes, hospitalNodes,
+                                                                        waitingTimes,
+                                                                        teamTotalTimes, service_costs,
+                                                                        distanceMatrix, tmax,
+                                                                        startNode, endNode, redsInSolution,
+                                                                        hospitalsInSolution)
+
+        tours, waitingTimes, teamTotalTimes, swap = swapHospitals(tours, hospitalNodes, service_costs,
+                                                                  distanceMatrix,
+                                                                  tmax, waitingTimes, teamTotalTimes,
+                                                                  hospitalsInSolution,
+                                                                  redsInSolution, redNodes, startNode, endNode)
+
     print(tours)
     print(waitingTimes)
-    interClusterMoveRed(tours, redNodes, waitingTimes, service_costs, distanceMatrix)
-    print(tours)
-    print(waitingTimes)
+    print(hospitalsInSolution)
+    print(redsInSolution)
+    print(teamTotalTime)
 
 
 def assignUniform(partitions, clusters, distanceMatrix):
@@ -1385,7 +1568,11 @@ clusters = []
 distanceMatrix = []
 tours = []
 waitingTimes = []
-solutionNodes = []
+greensInSolution = {}
+redsInSolution = {}
+hospitalsInSolution = {}
+teamScores = {}
+teamTotalTime = {}
 
 for i in range(0, 10):
     s = f.readline()
@@ -1415,6 +1602,9 @@ print(parameters[9])
 
 for i in range(0, parameters[1]):
     clusters.append({})
+    greensInSolution[i] = []
+    redsInSolution[i] = []
+    hospitalsInSolution[i] = []
 
 s = f.readline()
 
@@ -1596,7 +1786,9 @@ print(clusters)
 finalScore = 0
 finalTimeUntilLastRed = 0
 scores = {}
+clusterIndex = 0
 c = 0
+
 for i in range(0, parameters[0]):
     if (i + 1) in parameters[3]:
         scores[(i + 1)] = parameters[9][c]
@@ -1700,43 +1892,33 @@ for cluster in clusters:
     for n in feasibleTour[2]:
         nodesInSolution.append(totalNodes[n])
 
-    solutionNodes.append(nodesInSolution)
-
-    totalScore = 0
-    for n in feasibleTour[2]:
-        totalScore += currentScores[n]
-    finalScore += totalScore
-
-    time = 0
-    for (i, j) in feasibleTour[1]:
-        print(tmp[i][j])
-        time += tmp[i][j]
+    for n in nodesInSolution:
+        if n in greensCoordinates:
+            greensInSolution[clusterIndex].append(n)
+        if n in redsCoordinates:
+            redsInSolution[clusterIndex].append(n)
+        if n in hospitalsCoordinates:
+            hospitalsInSolution[clusterIndex].append(n)
 
     path = {}
     for (i, j) in reconstructedTour:
         path[i] = j
     # path[parameters[6][1] - 1] = None
 
+    totalScore = calculateScore(nodesInSolution, greensCoordinates, parameters[9])
+    time = calculateTotalTime(path, nodesInSolution, parameters[7], distanceMatrix, parameters[6][0], parameters[6][1])
     timeUntilLastRed = calculateWaitingTime(path, nodesInSolution, parameters[7], redsCoordinates, numberOfReds,
-                                            distanceMatrix)
+                                            distanceMatrix, parameters[6][0], parameters[6][1])
+
+    teamScores[clusterIndex] = totalScore
+    teamTotalTime[clusterIndex] = time
+    finalScore += totalScore
 
     if finalTimeUntilLastRed < timeUntilLastRed:
         finalTimeUntilLastRed = timeUntilLastRed
 
-    firstNodeToExclude = path[1]
-
-    for n in nodesInSolution:
-        if n not in path:
-            for i, j in path.items():
-                if j == n:
-                    secondNodeToExclude = i
-
-    for n in nodesInSolution:
-        if n != firstNodeToExclude and n != secondNodeToExclude:
-            # print(currentServiceTime[n])
-            time += parameters[7][n - 1]
-
     waitingTimes.append(timeUntilLastRed)
+    clusterIndex += 1
 
     print(timeUntilLastRed)
     print(feasibleTour)
@@ -1750,4 +1932,5 @@ print("FINAL TIME UNTIL LAST RED: ")
 print(((finalTimeUntilLastRed / 800) * 30) * (60 / 50))
 
 localSearch(clusters, tours, parameters[7], greensCoordinates, redsCoordinates, hospitalsCoordinates, waitingTimes,
-            distanceMatrix)
+            distanceMatrix, parameters[8], greensInSolution, redsInSolution, hospitalsInSolution, teamScores,
+            teamTotalTime, parameters[6][0], parameters[6][1])
