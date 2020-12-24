@@ -66,8 +66,8 @@ def calculateWaitingTime(path, nodesInSolution, service_costs, redsCoordinates, 
             numberOfReds -= 1
 
     timeUntilLastRed += (
-            service_costs[currentNode - 1] + distanceMatrix[currentNode - 1][path[currentNode] - 1] + service_costs[
-        path[currentNode] - 1])
+                service_costs[currentNode - 1] + distanceMatrix[currentNode - 1][path[currentNode] - 1] + service_costs[
+            path[currentNode] - 1])
 
     return timeUntilLastRed
 
@@ -1000,7 +1000,6 @@ def assignUniformNodes(partitions, coordinates, m, partialDistanceMatrix, comple
 
     if partitionElements > 0:
         bestCombination = assignUniform(partitions, clusters, completeDistanceMatrix)
-        print(bestCombination)
 
         for (p, c) in bestCombination:
             mapPartitionsClusters[p] = c
@@ -1183,7 +1182,6 @@ def assignUniformHospitals(partitions, coordinates, m, partialDistanceMatrix, co
 
     clusters = clusterizeData(4, partialDistanceMatrix, coordinates, m)
     bestCombination = assignUniform(partitions, clusters, completeDistanceMatrix)
-    print(bestCombination)
 
     for (p, c) in bestCombination:
         mapPartitionsClusters[p] = c
@@ -1518,9 +1516,9 @@ def clusterizeData(algorithm, distanceMatrix, coordinates, m):
     return clusters
 
 
-def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds, tmax):
+def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nGreens, nReds, nHospitals, tmax):
     problem = cplex.Cplex()
-    problem.objective.set_sense(problem.objective.sense.maximize)
+    problem.objective.set_sense(problem.objective.sense.minimize)
 
     names = []
     upper_bounds = []
@@ -1528,6 +1526,10 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
     types = []
     constraint_names = []
     constraints = []
+
+    tot_g_scores = 0
+    for s in scores:
+        tot_g_scores += s
 
     greensHospitalsMatrix = []
     for i in range(0, nodes):
@@ -1547,15 +1549,15 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
     reds = r
     greens = g
 
-    minusReds = []
-    for i in range(1, nodes):
-        minusReds.append(0.95 * -reds[i])
+    print(greens)
+    print(reds)
+    print(hospitals)
+    print(service_costs)
+    print(scores)
 
-    # minusDistanceTimes = []
-    # for i in range(0, nodes):
-    #     for j in range(0, nodes):
-    #         if i != j:
-    #             minusDistanceTimes.append(0.50 * -distanceMatrix[i][j])
+    # minusReds = []
+    # for i in range(1, nodes - 1):
+    #     minusReds.append(0.95 * -reds[i])
 
     for i in range(0, nodes):
         names.append("y" + str(i))
@@ -1582,7 +1584,25 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
     upper_bounds.append(cplex.infinity)
     lower_bounds.append(0.0)
 
-    objective = [s * 0.05 for s in scores] + minusReds + [0.0] * (nodes ** 2 - nodes) + [0.0]
+    names.append("wr")
+    types.append(problem.variables.type.continuous)
+    upper_bounds.append(cplex.infinity)
+    lower_bounds.append(0.0)
+
+    names.append("sscores")
+    types.append(problem.variables.type.integer)
+    upper_bounds.append(cplex.infinity)
+    lower_bounds.append(0.0)
+
+    for i in range(1, nodes - 1):
+        names.append("w" + str(i))
+        types.append(problem.variables.type.continuous)
+        upper_bounds.append(cplex.infinity)
+        lower_bounds.append(0.0)
+
+    # minimize wr * (tot_g_scores + 1) - sscores;
+    objective = [0.0] * nodes + [0.0] * (nodes - 1) + [0.0] * (nodes ** 2 - nodes) + [0.0] + [(tot_g_scores + 1)] + [
+        -1.0] + (nodes - 2) * [0.0]
 
     problem.variables.add(obj=objective,
                           lb=lower_bounds,
@@ -1591,7 +1611,10 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
                           names=names)
 
     # Constraints
-    constraintsNumber = ((nodes - 1) * 2) + ((nodes - 1) ** 2 - (nodes - 1)) + 10
+    constraintsNumber = ((nodes - 1) * 2) + ((nodes - 1) ** 2 - (nodes - 1)) + 11 + (
+            nGreens * (nHospitals + nReds + (nGreens - 1))) + (nReds * nHospitals) + (
+                                nHospitals * (nGreens + nReds)) + (nReds * nHospitals)
+
     for i in range(0, constraintsNumber):
         constraint_names.append("c" + str(i))
 
@@ -1640,16 +1663,6 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
                 coefficients.append(hospitals[i] * hospitals[j])
     constraints.append([variables, coefficients])
 
-    # # Non possono esistere archi del tipo: g -> h
-    # variables = []
-    # coefficients = []
-    # for i in range(1, nodes - 1):
-    #     for j in range(1, nodes - 1):
-    #         if i != j:
-    #             variables.append("x" + str(i) + "_" + str(j))
-    #             coefficients.append(greensHospitalsMatrix[i][j])
-    # constraints.append([variables, coefficients])
-
     # Non possono esistere archi del tipo: r -> r
     variables = []
     coefficients = []
@@ -1659,42 +1672,6 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
                 variables.append("x" + str(i) + "_" + str(j))
                 coefficients.append(reds[i] * reds[j])
     constraints.append([variables, coefficients])
-
-    # variables = []
-    # coefficients = []
-    # for i in range(1, nodes - 1):
-    #     for j in range(1, nodes - 1):
-    #         if i != j:
-    #             variables.append("x" + str(i) + "_" + str(j))
-    #             coefficients.append(reds[i] * hospitals[j])
-    # constraints.append([variables, coefficients])
-    #
-    # variables = []
-    # coefficients = []
-    # for i in range(1, nodes - 1):
-    #     for j in range(1, nodes - 1):
-    #         if i != j:
-    #             variables.append("x" + str(i) + "_" + str(j))
-    #             coefficients.append(greens[i] * reds[j])
-    # constraints.append([variables, coefficients])
-    #
-    # variables = []
-    # coefficients = []
-    # for i in range(1, nodes - 1):
-    #     for j in range(1, nodes - 1):
-    #         if i != j:
-    #             variables.append("x" + str(i) + "_" + str(j))
-    #             coefficients.append(greens[i] * hospitals[j])
-    # constraints.append([variables, coefficients])
-    #
-    # variables = []
-    # coefficients = []
-    # for i in range(1, nodes - 1):
-    #     for j in range(1, nodes - 1):
-    #         if i != j:
-    #             variables.append("x" + str(i) + "_" + str(j))
-    #             coefficients.append(hospitals[i] * greens[j])
-    # constraints.append([variables, coefficients])
 
     # Il nodo di partenza deve essere un h
     variables = []
@@ -1728,7 +1705,7 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
         coefficients.append(1.0)
     constraints.append([variables, coefficients])
 
-    # I rossi devo essere visitati tutti
+    # I rossi devono essere visitati tutti
     variables = []
     coefficients = []
     for i in range(0, nodes):
@@ -1766,11 +1743,90 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
     coefficients.append(-1.0)
     constraints.append([variables, coefficients])
 
+    # definisco sscores come somma totale degli scores dei verdi in soluzione
+    variables = []
+    coefficients = []
+    for i in range(1, nodes - 1):
+        if greens[i] == 1:
+            variables.append("y" + str(i))
+            coefficients.append(scores[i])
+    variables.append("sscores")
+    coefficients.append(-1.0)
+    constraints.append([variables, coefficients])
+
+    # calcolo i tempi d'attesa dei verdi
+    rhs1 = []
+    for i in range(1, nodes - 1):
+        for j in range(1, nodes - 1):
+            if greens[i] * greens[j] == 1 or greens[i] * reds[j] == 1 or greens[i] * hospitals[j] == 1:
+                if i != j:
+                    variables = []
+                    coefficients = []
+                    variables.append("w" + str(i))
+                    coefficients.append(1.0)
+                    variables.append("w" + str(j))
+                    coefficients.append(-1.0)
+                    variables.append("x" + str(i) + "_" + str(j))
+                    coefficients.append(100000.0)
+                    constraints.append([variables, coefficients])
+                    rhs1.append(100000.0 - service_costs[i] - distanceMatrix[i][j])
+
+    # calcolo i tempi d'attesa dei rossi
+    rhs2 = []
+    for i in range(1, nodes - 1):
+        for j in range(1, nodes - 1):
+            if reds[i] * hospitals[j] == 1:
+                variables = []
+                coefficients = []
+                variables.append("w" + str(i))
+                coefficients.append(1.0)
+                variables.append("w" + str(j))
+                coefficients.append(-1.0)
+                variables.append("x" + str(i) + "_" + str(j))
+                coefficients.append(100000.0)
+                constraints.append([variables, coefficients])
+                rhs2.append(100000.0 - service_costs[i] - distanceMatrix[i][j])
+
+    # calcolo i tempi d'attesa degli ospedali
+    rhs3 = []
+    for i in range(1, nodes - 1):
+        for j in range(1, nodes - 1):
+            if hospitals[i] * greens[j] == 1 or hospitals[i] * reds[j] == 1:
+                variables = []
+                coefficients = []
+                variables.append("w" + str(i))
+                coefficients.append(1.0)
+                variables.append("w" + str(j))
+                coefficients.append(-1.0)
+                variables.append("x" + str(i) + "_" + str(j))
+                coefficients.append(100000.0)
+                constraints.append([variables, coefficients])
+                rhs3.append(100000.0 - service_costs[i] - distanceMatrix[i][j])
+
+    # definisco wr come il tempo d'attesa dell'ultimo paziente rosso
+    rhs4 = []
+    for i in range(1, nodes - 1):
+        for h in range(1, nodes - 1):
+            if reds[i] * hospitals[h] == 1:
+                variables = []
+                coefficients = []
+                variables.append("wr")
+                coefficients.append(1.0)
+                variables.append("w" + str(i))
+                coefficients.append(-1.0)
+                variables.append("x" + str(i) + "_" + str(h))
+                coefficients.append(-distanceMatrix[i][h] - service_costs[h])
+                constraints.append([variables, coefficients])
+                rhs4.append(service_costs[i])
+
     rhs = ([0.0] * ((nodes - 1) * 2)) + ([(nodes - 2)] * ((nodes - 1) ** 2 - (nodes - 1))) + [0.0] + [0.0] + [
-        0.0] + ([1.0] * 2) + ([0.0] * 2) + [nReds] + [0.0] + [tmax]
+        0.0] + ([1.0] * 2) + ([0.0] * 2) + [nReds] + [0.0] + [tmax] + [0.0] + rhs1 + rhs2 + rhs3 + rhs4
 
     constraint_senses = (["E"] * ((nodes - 1) * 2)) + (["L"] * ((nodes - 1) ** 2 - (nodes - 1))) + ["E"] + [
-        "E"] + ["E"] + (["E"] * 2) + (["E"] * 2) + ["E"] + ["E"] + ["L"]
+        "E"] + ["E"] + (["E"] * 2) + (["E"] * 2) + ["E"] + ["E"] + ["L"] + ["E"] + ["L"] * (
+                                nGreens * (nHospitals + nReds + (nGreens - 1))) + ["L"] * (
+                                nReds * nHospitals) + ["L"] * (nHospitals * (nGreens + nReds)) + ["G"] * (
+                                nReds * nHospitals)
 
     problem.linear_constraints.add(lin_expr=constraints, senses=constraint_senses, rhs=rhs, names=constraint_names)
     problem.write("prob.lp")
@@ -1788,8 +1844,15 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
             print(variables[i] + " = " + str(values[i]))
 
     solution = []
+    w = []
     for i in range(0, len(variables)):
-        if (values[i] == 1.0 and "x" in variables[i]):
+        if ("w" in variables[i] and variables[i] != "wr"):
+            w.append((variables[i], values[i]))
+
+        if variables[i] == "wr":
+            wr = values[i]
+
+        if (values[i] >= 0.999 and "x" in variables[i]):
             v = variables[i][1:len(variables[i])]
             firstNode = v[0: v.index('_')]
             secondNode = v[v.index('_') + 1: len(v)]
@@ -1797,11 +1860,11 @@ def getFeasibleTour(distanceMatrix, service_costs, h, r, g, scores, nodes, nReds
 
     y = []
     for i in range(0, len(variables)):
-        if (values[i] == 1.0 and "y" in variables[i]):
+        if (values[i] >= 0.999 and "y" in variables[i]):
             v = variables[i][1:len(variables[i])]
             y.append(int(v))
 
-    return (problem.solution.get_objective_value(), solution, y)
+    return (wr, solution, y)
 
 
 f = open(str(sys.argv[1]), "r")
@@ -2073,11 +2136,12 @@ for cluster in clusters:
     hospitals = []
     reds = []
     greens = []
-    numberOfReds = 0
+    numberOfReds = numberOfGreen = numberOfHospitals = 0
 
     for n in totalNodes:
         if n in parameters[3]:
             greens.append(1.0)
+            numberOfGreen += 1
         else:
             greens.append(0.0)
 
@@ -2091,6 +2155,7 @@ for cluster in clusters:
     for n in totalNodes:
         if n in parameters[5]:
             hospitals.append(1.0)
+            numberOfHospitals += 1
         else:
             hospitals.append(0.0)
 
@@ -2124,7 +2189,7 @@ for cluster in clusters:
     print(parameters[8])
 
     feasibleTour = getFeasibleTour(tmp, currentServiceTime, hospitals, reds, greens, currentScores,
-                                   len(totalNodes), numberOfReds, parameters[8])
+                                   len(totalNodes), numberOfGreen, numberOfReds, numberOfHospitals, parameters[8])
 
     reconstructedTour = []
     nodesInSolution = []
@@ -2151,8 +2216,7 @@ for cluster in clusters:
 
     totalScore = calculateScore(nodesInSolution, scores)
     time = calculateTotalTime(path, nodesInSolution, parameters[7], distanceMatrix, parameters[6][0], parameters[6][1])
-    timeUntilLastRed = calculateWaitingTime(path, nodesInSolution, parameters[7], redsCoordinates, numberOfReds,
-                                            distanceMatrix, parameters[6][0], parameters[6][1])
+    timeUntilLastRed = feasibleTour[0] - parameters[7][reconstructedTour[0][1] - 1]
 
     teamScores[clusterIndex] = totalScore
     teamTotalTime[clusterIndex] = time
