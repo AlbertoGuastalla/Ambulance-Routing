@@ -2,6 +2,7 @@ import sys
 import ast
 import math
 import numpy as np
+from datetime import datetime
 from docplex.mp.model import Model
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import SpectralClustering
@@ -2188,8 +2189,13 @@ for cluster in clusters:
     print("parameters[8]")
     print(parameters[8])
 
+    now = datetime.now()
+
     feasibleTour = getFeasibleTour(tmp, currentServiceTime, hospitals, reds, greens, currentScores,
                                    len(totalNodes), numberOfGreen, numberOfReds, numberOfHospitals, parameters[8])
+
+    end = datetime.now()
+    print(end - now)
 
     reconstructedTour = []
     nodesInSolution = []
