@@ -573,7 +573,7 @@ def shakeHospitals(tours, hospitalNodes, service_costs, distanceMatrix, tmax, wa
             min_ = math.inf
             swap = None
             rnd = random.randint(0, len(hospitalsNotSwappedYet) - 1 - k)
-            h1 = hospitalsInSolution[t][rnd]
+            h1 = hospitalsNotSwappedYet[rnd]
             hospitalsNotSwappedYet.pop(rnd)
 
             for n1, n2 in tours[t]:
@@ -849,29 +849,29 @@ def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNo
         hospitalsTabuTagOut[h] = -1
 
     while iteration < 100000:
-        # if CURRENT_OP == 0:
-        #     # print("interClusterSwapReds")
-        #     tours, waitingTimes, teamTotalTimes, swap = interClusterSwapReds(tours, redNodes, waitingTimes,
-        #                                                                      teamTotalTimes, service_costs,
-        #                                                                      distanceMatrix, tmax, startNode, endNode,
-        #                                                                      redsInSolution, redsTabuTagIn,
-        #                                                                      redsTabuTagOut, iteration)
-        #
-        #     if swap is not None:
-        #         # print(swap)
-        #         redsTabuTagIn[swap[0][1]][swap[0][0]] = iteration + 10
-        #         redsTabuTagOut[swap[0][0]] = iteration + 15
-        #         redsTabuTagIn[swap[1][1]][swap[1][0]] = iteration + 10
-        #         redsTabuTagOut[swap[1][0]] = iteration + 15
+        if CURRENT_OP == 0:
+            # print("interClusterSwapReds")
+            tours, waitingTimes, teamTotalTimes, swap = interClusterSwapReds(tours, redNodes, waitingTimes,
+                                                                             teamTotalTimes, service_costs,
+                                                                             distanceMatrix, tmax, startNode, endNode,
+                                                                             redsInSolution, redsTabuTagIn,
+                                                                             redsTabuTagOut, iteration)
 
-        # if CURRENT_OP == 1:
-        #     # print("intraClusterSwapReds")
-        #     for i in range(0, len(tours)):
-        #         tours[i], waitingTimes[i], teamTotalTimes[i] = intraClusterSwapReds(tours[i], redsInSolution[i],
-        #                                                                             redNodes,
-        #                                                                             waitingTimes[i], teamTotalTimes[i],
-        #                                                                             service_costs, distanceMatrix, tmax,
-        #                                                                             startNode, endNode)
+            if swap is not None:
+                # print(swap)
+                redsTabuTagIn[swap[0][1]][swap[0][0]] = iteration + 10
+                redsTabuTagOut[swap[0][0]] = iteration + 15
+                redsTabuTagIn[swap[1][1]][swap[1][0]] = iteration + 10
+                redsTabuTagOut[swap[1][0]] = iteration + 15
+
+        if CURRENT_OP == 1:
+            # print("intraClusterSwapReds")
+            for i in range(0, len(tours)):
+                tours[i], waitingTimes[i], teamTotalTimes[i] = intraClusterSwapReds(tours[i], redsInSolution[i],
+                                                                                    redNodes,
+                                                                                    waitingTimes[i], teamTotalTimes[i],
+                                                                                    service_costs, distanceMatrix, tmax,
+                                                                                    startNode, endNode)
 
         if CURRENT_OP == 2:
             # print("swapHospitals")
@@ -886,80 +886,80 @@ def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNo
                 hospitalsTabuTagIn[swap[2]][swap[1]] = iteration + 5
                 hospitalsTabuTagOut[swap[0]] = iteration + 7
 
-        # if CURRENT_OP == 3:
-        #     # print("swapGreens")
-        #     tours, waitingTimes, teamTotalTimes, teamScores, swap = swapGreens(tours, redNodes, greenNodes,
-        #                                                                        redsInSolution, greensInSolution,
-        #                                                                        waitingTimes,
-        #                                                                        teamTotalTimes, service_costs,
-        #                                                                        distanceMatrix, tmax, scores, teamScores,
-        #                                                                        startNode, endNode, greensTabuTagIn,
-        #                                                                        greensTabuTagOut, iteration, objective)
-        #
-        #     if swap is not None:
-        #         # print(swap)
-        #         greensTabuTagIn[swap[2]][swap[1]] = iteration + 5
-        #         greensTabuTagOut[swap[0]] = iteration + 7
+        if CURRENT_OP == 3:
+            # print("swapGreens")
+            tours, waitingTimes, teamTotalTimes, teamScores, swap = swapGreens(tours, redNodes, greenNodes,
+                                                                               redsInSolution, greensInSolution,
+                                                                               waitingTimes,
+                                                                               teamTotalTimes, service_costs,
+                                                                               distanceMatrix, tmax, scores, teamScores,
+                                                                               startNode, endNode, greensTabuTagIn,
+                                                                               greensTabuTagOut, iteration, objective)
 
-        # if CURRENT_OP == 4:
-        #     # print("insertGreen")
-        #     tours, waitingTimes, teamTotalTimes, teamScores, swap = insertGreen(tours, redNodes, greenNodes,
-        #                                                                         redsInSolution, greensInSolution,
-        #                                                                         waitingTimes,
-        #                                                                         teamTotalTimes, service_costs,
-        #                                                                         distanceMatrix,
-        #                                                                         tmax, scores, teamScores, startNode,
-        #                                                                         endNode, greensTabuTagIn,
-        #                                                                         iteration, objective)
-        #
-        #     if swap is not None:
-        #         # print(swap)
-        #         greensTabuTagOut[swap[0]] = iteration + 5
+            if swap is not None:
+                # print(swap)
+                greensTabuTagIn[swap[2]][swap[1]] = iteration + 5
+                greensTabuTagOut[swap[0]] = iteration + 7
 
-        # if CURRENT_OP == 5:
-        #     # print("interClusterMoveRed")
-        #     tours, waitingTimes, teamTotalTimes, swap = interClusterMoveRed(tours, redNodes, waitingTimes,
-        #                                                                     teamTotalTimes, service_costs,
-        #                                                                     distanceMatrix, tmax, startNode, endNode,
-        #                                                                     redsInSolution, hospitalsInSolution,
-        #                                                                     greensInSolution,
-        #                                                                     redsTabuTagIn, redsTabuTagOut,
-        #                                                                     firstHopitalsMap, iteration)
-        #
-        #     if swap is not None:
-        #         # print(swap)
-        #         redsTabuTagIn[swap[1]][swap[0]] = iteration + 5
-        #         redsTabuTagOut[swap[0]] = iteration + 7
+        if CURRENT_OP == 4:
+            # print("insertGreen")
+            tours, waitingTimes, teamTotalTimes, teamScores, swap = insertGreen(tours, redNodes, greenNodes,
+                                                                                redsInSolution, greensInSolution,
+                                                                                waitingTimes,
+                                                                                teamTotalTimes, service_costs,
+                                                                                distanceMatrix,
+                                                                                tmax, scores, teamScores, startNode,
+                                                                                endNode, greensTabuTagIn,
+                                                                                iteration, objective)
 
-        # if NUMBER_OF_NOT_IMPROVING_SOLUTIONS % 20 == 0 and NUMBER_OF_NOT_IMPROVING_SOLUTIONS > 0:
-        #     # print("deleteGreens")
-        #     tours, waitingTimes, teamTotalTimes, teamScores, nodesDeleted = deleteGreens(tours, greensInSolution,
-        #                                                                                  redsInSolution, redNodes,
-        #                                                                                  distanceMatrix, service_costs,
-        #                                                                                  scores, teamScores,
-        #                                                                                  teamTotalTimes, startNode,
-        #                                                                                  endNode)
-        #
-        #     if len(nodesDeleted) > 0:
-        #         # print(nodesDeleted)
-        #         for swap in nodesDeleted:
-        #             greensTabuTagIn[swap[1]][swap[0]] = iteration + 5
+            if swap is not None:
+                # print(swap)
+                greensTabuTagOut[swap[0]] = iteration + 5
 
-            # # print("shakeHospitals")
-            # tours, waitingTimes, teamTotalTimes, swaps = shakeHospitals(tours, hospitalNodes,
-            #                                                             service_costs,
-            #                                                             distanceMatrix, tmax,
-            #                                                             waitingTimes,
-            #                                                             teamTotalTimes,
-            #                                                             hospitalsInSolution,
-            #                                                             redsInSolution, redNodes, firstHopitalsMap,
-            #                                                             startNode, endNode)
-            #
-            # if len(swaps) > 0:
-            #     # print(swaps)
-            #     for swap in swaps:
-            #         hospitalsTabuTagIn[swap[2]][swap[1]] = iteration + 5
-            #         hospitalsTabuTagOut[swap[0]] = iteration + 7
+        if CURRENT_OP == 5:
+            # print("interClusterMoveRed")
+            tours, waitingTimes, teamTotalTimes, swap = interClusterMoveRed(tours, redNodes, waitingTimes,
+                                                                            teamTotalTimes, service_costs,
+                                                                            distanceMatrix, tmax, startNode, endNode,
+                                                                            redsInSolution, hospitalsInSolution,
+                                                                            greensInSolution,
+                                                                            redsTabuTagIn, redsTabuTagOut,
+                                                                            firstHopitalsMap, iteration)
+
+            if swap is not None:
+                # print(swap)
+                redsTabuTagIn[swap[1]][swap[0]] = iteration + 5
+                redsTabuTagOut[swap[0]] = iteration + 7
+
+        if NUMBER_OF_NOT_IMPROVING_SOLUTIONS % 20 == 0 and NUMBER_OF_NOT_IMPROVING_SOLUTIONS > 0:
+            # print("deleteGreens")
+            tours, waitingTimes, teamTotalTimes, teamScores, nodesDeleted = deleteGreens(tours, greensInSolution,
+                                                                                         redsInSolution, redNodes,
+                                                                                         distanceMatrix, service_costs,
+                                                                                         scores, teamScores,
+                                                                                         teamTotalTimes, startNode,
+                                                                                         endNode)
+
+            if len(nodesDeleted) > 0:
+                # print(nodesDeleted)
+                for swap in nodesDeleted:
+                    greensTabuTagIn[swap[1]][swap[0]] = iteration + 5
+
+            # print("shakeHospitals")
+            tours, waitingTimes, teamTotalTimes, swaps = shakeHospitals(tours, hospitalNodes,
+                                                                        service_costs,
+                                                                        distanceMatrix, tmax,
+                                                                        waitingTimes,
+                                                                        teamTotalTimes,
+                                                                        hospitalsInSolution,
+                                                                        redsInSolution, redNodes, firstHopitalsMap,
+                                                                        startNode, endNode)
+
+            if len(swaps) > 0:
+                # print(swaps)
+                for swap in swaps:
+                    hospitalsTabuTagIn[swap[2]][swap[1]] = iteration + 5
+                    hospitalsTabuTagOut[swap[0]] = iteration + 7
 
         sol1 = max(waitingTimes)
         sol2 = sum(teamScores.values())
@@ -1400,7 +1400,6 @@ def assignUniformHospitals(partitions, coordinates, m, partialDistanceMatrix, co
         surplusClusters = []
         lackClusters = []
         hospitalsInClusters = {}
-        print(partitions)
 
         for c in range(0, len(partitions)):
             for h in partitions[c].keys():
@@ -1447,7 +1446,7 @@ def assignUniformHospitals(partitions, coordinates, m, partialDistanceMatrix, co
                 if len(partitions[c]) < minNodes:
                     lackClusters.append(c)
 
-                if len(partitions[c]) > maxNodes or len(partitions[c]) < minNodes:
+                if len(partitions[c]) > maxNodes:
                     flag = True
 
             if flag:
@@ -1455,24 +1454,27 @@ def assignUniformHospitals(partitions, coordinates, m, partialDistanceMatrix, co
                     lackClusters = range(0, len(partitions))
                     lackClusters = list(set(lackClusters) - set(surplusClusters))
 
-                min_ = math.inf
+                if len(lackClusters) > 0:
+                    min_ = math.inf
 
-                for c in surplusClusters:
-                    for c1 in lackClusters:
-                        for n in partitions[c]:
-                            if n in clusters[mapPartitionsClusters[c]]:
-                                distance = 0
-                                for n1 in partitions[c1]:
-                                    distance += completeDistanceMatrix[n - 1][n1 - 1]
+                    for c in surplusClusters:
+                        for c1 in lackClusters:
+                            for n in partitions[c]:
+                                if n in clusters[mapPartitionsClusters[c]]:
+                                    distance = 0
+                                    for n1 in partitions[c1]:
+                                        distance += completeDistanceMatrix[n - 1][n1 - 1]
 
-                                distance /= len(partitions[c1])
+                                    distance /= len(partitions[c1])
 
-                                if min_ > distance:
-                                    min_ = distance
-                                    swap = (n, c, c1)
+                                    if min_ > distance:
+                                        min_ = distance
+                                        swap = (n, c, c1)
 
-                partitions[swap[2]][swap[0]] = partitions[swap[1]][swap[0]]
-                del partitions[swap[1]][swap[0]]
+                    partitions[swap[2]][swap[0]] = partitions[swap[1]][swap[0]]
+                    del partitions[swap[1]][swap[0]]
+                else:
+                    flag = False
 
     return partitions
     # clusters = clusterizeData(4, partialDistanceMatrix, coordinates, m)
@@ -2233,7 +2235,6 @@ for t in range(0, parameters[1]):
 clusters = assignUniformHospitals(clusters, partialHospitalCoordinates, parameters[1], distanceMatrix_, distanceMatrix,
                                   redsCoordinates, len(greensCoordinates) + len(redsCoordinates))
 print(clusters)
-exit()
 
 # assignment = assignUniformHospitals(len(parameters[5]), parameters[1])
 #
