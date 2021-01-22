@@ -52,6 +52,8 @@ def calculateWaitingTime(path, nodesInSolution, service_costs, redsCoordinates, 
     for n1, n2 in path.items():
         if n1 == startNode:
             firstNodeToExclude = n2
+        if n2 == endNode:
+            secondNodeToExclude = n1
 
     currentNode = 1
     timeUntilLastRed = 0
@@ -71,9 +73,12 @@ def calculateWaitingTime(path, nodesInSolution, service_costs, redsCoordinates, 
         if currentNode in redsCoordinates.keys():
             numberOfReds -= 1
 
-    timeUntilLastRed += (
-            service_costs[currentNode - 1] + distanceMatrix[currentNode - 1][path[currentNode] - 1] + service_costs[
-        path[currentNode] - 1])
+    if secondNodeToExclude == path[currentNode]:
+        timeUntilLastRed += (service_costs[currentNode - 1] + distanceMatrix[currentNode - 1][path[currentNode] - 1])
+    else:
+        timeUntilLastRed += (
+                service_costs[currentNode - 1] + distanceMatrix[currentNode - 1][path[currentNode] - 1] + service_costs[
+            path[currentNode] - 1])
 
     return timeUntilLastRed
 
@@ -190,55 +195,57 @@ def interClusterMoveRed(tours, redNodes, waitingTimes, totalTimes, service_costs
                         h2 = p_t2[red2]
 
                         if h2 != firstHopitalsMap[t2]:
-                            p_t1[h2] = p_t1[node]
-                            p_t1[node] = red2
-                            p_t1[red2] = h2
-                            p_t2[previous_t2[red2]] = p_t2[h2]
-                            del p_t2[h2]
-                            del p_t2[red2]
+                            if (previous_t2[red2] in greensInSolution[t2] and p_t2[h2] != endNode) or (
+                                    previous_t2[red2] in hospitalsInSolution[t2]):
+                                p_t1[h2] = p_t1[node]
+                                p_t1[node] = red2
+                                p_t1[red2] = h2
+                                p_t2[previous_t2[red2]] = p_t2[h2]
+                                del p_t2[h2]
+                                del p_t2[red2]
 
-                            nodesInSolution_t1 = []
-                            for n1, n2 in p_t1.items():
-                                if n1 not in nodesInSolution_t1:
-                                    nodesInSolution_t1.append(n1)
-                                if n2 not in nodesInSolution_t1:
-                                    nodesInSolution_t1.append(n2)
+                                nodesInSolution_t1 = []
+                                for n1, n2 in p_t1.items():
+                                    if n1 not in nodesInSolution_t1:
+                                        nodesInSolution_t1.append(n1)
+                                    if n2 not in nodesInSolution_t1:
+                                        nodesInSolution_t1.append(n2)
 
-                            nodesInSolution_t2 = []
-                            for n1, n2 in p_t2.items():
-                                if n1 not in nodesInSolution_t2:
-                                    nodesInSolution_t2.append(n1)
-                                if n2 not in nodesInSolution_t2:
-                                    nodesInSolution_t2.append(n2)
+                                nodesInSolution_t2 = []
+                                for n1, n2 in p_t2.items():
+                                    if n1 not in nodesInSolution_t2:
+                                        nodesInSolution_t2.append(n1)
+                                    if n2 not in nodesInSolution_t2:
+                                        nodesInSolution_t2.append(n2)
 
-                            mewTime_t1 = calculateTotalTime(p_t1, nodesInSolution_t1, service_costs, distanceMatrix,
-                                                            startNode, endNode)
+                                mewTime_t1 = calculateTotalTime(p_t1, nodesInSolution_t1, service_costs, distanceMatrix,
+                                                                startNode, endNode)
 
-                            newTime_t2 = calculateTotalTime(p_t2, nodesInSolution_t2, service_costs, distanceMatrix,
-                                                            startNode, endNode)
+                                newTime_t2 = calculateTotalTime(p_t2, nodesInSolution_t2, service_costs, distanceMatrix,
+                                                                startNode, endNode)
 
-                            if mewTime_t1 <= tmax and newTime_t2 <= tmax:
-                                newWaitingTime_t1 = calculateWaitingTime(p_t1, nodesInSolution_t1, service_costs,
-                                                                         redNodes,
-                                                                         len(redsInSolution[t1]) + 1,
-                                                                         distanceMatrix, startNode, endNode)
+                                if mewTime_t1 <= tmax and newTime_t2 <= tmax:
+                                    newWaitingTime_t1 = calculateWaitingTime(p_t1, nodesInSolution_t1, service_costs,
+                                                                             redNodes,
+                                                                             len(redsInSolution[t1]) + 1,
+                                                                             distanceMatrix, startNode, endNode)
 
-                                newWaitingTime_t2 = calculateWaitingTime(p_t2, nodesInSolution_t2, service_costs,
-                                                                         redNodes,
-                                                                         len(redsInSolution[t2]) - 1,
-                                                                         distanceMatrix, startNode, endNode)
+                                    newWaitingTime_t2 = calculateWaitingTime(p_t2, nodesInSolution_t2, service_costs,
+                                                                             redNodes,
+                                                                             len(redsInSolution[t2]) - 1,
+                                                                             distanceMatrix, startNode, endNode)
 
-                                if newWaitingTime_t1 + newWaitingTime_t2 < min_:
-                                    min_ = newWaitingTime_t1 + newWaitingTime_t2
-                                    w_t1 = newWaitingTime_t1
-                                    w_t2 = newWaitingTime_t2
-                                    bestTour_t1 = p_t1
-                                    bestTour_t2 = p_t2
-                                    newTotalTime_t1 = mewTime_t1
-                                    newTotalTime_t2 = newTime_t2
-                                    swap = (red2, t2, t1, h2)
-                                    t1_ = t1
-                                    t2_ = t2
+                                    if newWaitingTime_t1 + newWaitingTime_t2 < min_:
+                                        min_ = newWaitingTime_t1 + newWaitingTime_t2
+                                        w_t1 = newWaitingTime_t1
+                                        w_t2 = newWaitingTime_t2
+                                        bestTour_t1 = p_t1
+                                        bestTour_t2 = p_t2
+                                        newTotalTime_t1 = mewTime_t1
+                                        newTotalTime_t2 = newTime_t2
+                                        swap = (red2, t2, t1, h2)
+                                        t1_ = t1
+                                        t2_ = t2
 
     if bestTour_t1 is not None and bestTour_t2 is not None:
         newTour_t1 = []
@@ -471,7 +478,7 @@ def intraClusterSwapReds(tour, redsInSolution, redNodes, waitingTime, totalTime,
 #     return newTour, waitingTime, newTotalTime
 
 
-def deleteGreens(tours, greensInSolution, redsInSolution, redNodes,
+def deleteGreens(tours, greensInSolution, redsInSolution, hospitalNodes, redNodes,
                  distanceMatrix, service_costs, scores, teamScores, totalTimes, startNode, endNode):
     nodesDeleted = []
 
@@ -485,55 +492,59 @@ def deleteGreens(tours, greensInSolution, redsInSolution, redNodes,
 
         for k in range(0, (int(len(greensInSolution[i]) / 3) + (len(greensInSolution[i]) % 3 > 0))):
             min_ = math.inf
+            nodeToDelete = None
 
             for j in range(0, len(greensInSolution[i])):
                 green = greensInSolution[i][j]
 
                 previousNode = previous[green]
                 nextNode = path[green]
-                ratio = scores[green - 1] / (
-                        service_costs[green - 1] + distanceMatrix[previousNode - 1][green - 1] +
-                        distanceMatrix[green - 1][
-                            nextNode - 1])
 
-                if min_ > ratio:
-                    min_ = ratio
-                    nodeToDelete = green
-                    prev = previous[nodeToDelete]
-                    next = path[nodeToDelete]
+                if previousNode not in hospitalNodes and nextNode not in hospitalNodes:
+                    ratio = scores[green - 1] / (
+                            service_costs[green - 1] + distanceMatrix[previousNode - 1][green - 1] +
+                            distanceMatrix[green - 1][
+                                nextNode - 1])
 
-            nodesDeleted.append((nodeToDelete, i))
-            path[previous[nodeToDelete]] = path[nodeToDelete]
-            previous[path[nodeToDelete]] = previous[nodeToDelete]
-            del path[nodeToDelete]
-            del previous[nodeToDelete]
-            greensInSolution[i].remove(nodeToDelete)
+                    if min_ > ratio:
+                        min_ = ratio
+                        nodeToDelete = green
+                        prev = previous[nodeToDelete]
+                        next = path[nodeToDelete]
 
-            # if prev in hospitalsInSolution[i] and next in hospitalsInSolution[i]:
-            #     a = distanceMatrix[previous[prev] - 1][prev - 1] + distanceMatrix[prev - 1][path[next] - 1]
-            #     b = distanceMatrix[previous[prev] - 1][next - 1] + distanceMatrix[next - 1][path[next] - 1]
-            #
-            #     if a < b:
-            #         totalTimes[i] = totalTimes[i] - (
-            #                 distanceMatrix[prev - 1][next - 1] + distanceMatrix[next - 1][path[next] - 1]) + \
-            #                         distanceMatrix[prev - 1][path[next] - 1]
-            #
-            #         path[prev] = path[next]
-            #         del path[next]
-            #         hospitalsInSolution[i].remove(next)
-            #     else:
-            #         totalTimes[i] = totalTimes[i] - (
-            #                 distanceMatrix[previous[prev] - 1][prev - 1] + distanceMatrix[prev - 1][next - 1]) + \
-            #                         distanceMatrix[previous[prev] - 1][next - 1]
-            #
-            #         path[previous[prev]] = next
-            #         del path[prev]
-            #         hospitalsInSolution[i].remove(prev)
+            if nodeToDelete != None:
+                nodesDeleted.append((nodeToDelete, i))
+                path[previous[nodeToDelete]] = path[nodeToDelete]
+                previous[path[nodeToDelete]] = previous[nodeToDelete]
+                del path[nodeToDelete]
+                del previous[nodeToDelete]
+                greensInSolution[i].remove(nodeToDelete)
 
-            teamScores[i] -= scores[nodeToDelete - 1]
-            totalTimes[i] = totalTimes[i] + distanceMatrix[prev - 1][next - 1] - (
-                    service_costs[nodeToDelete - 1] + distanceMatrix[prev - 1][nodeToDelete - 1] +
-                    distanceMatrix[nodeToDelete - 1][next - 1])
+                # if prev in hospitalsInSolution[i] and next in hospitalsInSolution[i]:
+                #     a = distanceMatrix[previous[prev] - 1][prev - 1] + distanceMatrix[prev - 1][path[next] - 1]
+                #     b = distanceMatrix[previous[prev] - 1][next - 1] + distanceMatrix[next - 1][path[next] - 1]
+                #
+                #     if a < b:
+                #         totalTimes[i] = totalTimes[i] - (
+                #                 distanceMatrix[prev - 1][next - 1] + distanceMatrix[next - 1][path[next] - 1]) + \
+                #                         distanceMatrix[prev - 1][path[next] - 1]
+                #
+                #         path[prev] = path[next]
+                #         del path[next]
+                #         hospitalsInSolution[i].remove(next)
+                #     else:
+                #         totalTimes[i] = totalTimes[i] - (
+                #                 distanceMatrix[previous[prev] - 1][prev - 1] + distanceMatrix[prev - 1][next - 1]) + \
+                #                         distanceMatrix[previous[prev] - 1][next - 1]
+                #
+                #         path[previous[prev]] = next
+                #         del path[prev]
+                #         hospitalsInSolution[i].remove(prev)
+
+                teamScores[i] -= scores[nodeToDelete - 1]
+                totalTimes[i] = totalTimes[i] + distanceMatrix[prev - 1][next - 1] - (
+                        service_costs[nodeToDelete - 1] + distanceMatrix[prev - 1][nodeToDelete - 1] +
+                        distanceMatrix[nodeToDelete - 1][next - 1])
 
         nodesInSolution = []
         for n1, n2 in path.items():
@@ -659,7 +670,7 @@ def insertGreen(tours, redNodes, greenNodes, redsInSolution, greensInSolution, w
                     newTotalTime = totalTimes[t]
                     newProfit = teamScores[t] + scores[green - 1]
 
-                    if n1 not in redsInSolution[t] and path[n1] != endNode and n1 != startNode:
+                    if n1 not in redsInSolution[t] and n2 != endNode and n1 != startNode:
                         p = path.copy()
                         p[n1] = green
                         p[green] = n2
@@ -934,9 +945,11 @@ def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNo
         if NUMBER_OF_NOT_IMPROVING_SOLUTIONS % 20 == 0 and NUMBER_OF_NOT_IMPROVING_SOLUTIONS > 0:
             # print("deleteGreens")
             tours, waitingTimes, teamTotalTimes, teamScores, nodesDeleted = deleteGreens(tours, greensInSolution,
-                                                                                         redsInSolution, redNodes,
-                                                                                         distanceMatrix, service_costs,
-                                                                                         scores, teamScores,
+                                                                                         redsInSolution,
+                                                                                         hospitalsCoordinates,
+                                                                                         redNodes, distanceMatrix,
+                                                                                         service_costs, scores,
+                                                                                         teamScores,
                                                                                          teamTotalTimes, startNode,
                                                                                          endNode)
 
@@ -2217,9 +2230,12 @@ clusters = assignUniformNodes(clusters, redsCoordinates, parameters[1], distance
 #         distanceHospitalsMatrix = np.delete(distanceHospitalsMatrix, p, 1)
 
 firstHopitalsMap = {}
-for team, h in parameters[10]:
-    clusters[team][h] = coordinates[h]
-    firstHopitalsMap[team] = h
+for h in range(0, len(parameters[10])):
+    for t in range(0, len(parameters[10][h])):
+        if parameters[10][h][t] == 1:
+            hospital = parameters[5][h]
+            clusters[t][hospital] = coordinates[hospital]
+            firstHopitalsMap[t] = hospital
 
 distanceMatrix_ = np.array(distanceMatrix, dtype=float)
 for p in range(parameters[6][1] - 1, -1, -1):
@@ -2412,7 +2428,7 @@ for cluster in clusters:
     waitingTimes.append(timeUntilLastRed)
     clusterIndex += 1
 
-    print(timeUntilLastRed)
+    print(finalTimeUntilLastRed)
     print(feasibleTour)
     print(reconstructedTour)
     print(totalScore)
