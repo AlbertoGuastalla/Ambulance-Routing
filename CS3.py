@@ -541,7 +541,7 @@ def deleteGreens(tours, greensInSolution, redsInSolution, hospitalNodes, redNode
                 #         del path[prev]
                 #         hospitalsInSolution[i].remove(prev)
 
-                teamScores[i] -= scores[nodeToDelete - 1]
+                teamScores[i] -= scores[nodeToDelete]
                 totalTimes[i] = totalTimes[i] + distanceMatrix[prev - 1][next - 1] - (
                         service_costs[nodeToDelete - 1] + distanceMatrix[prev - 1][nodeToDelete - 1] +
                         distanceMatrix[nodeToDelete - 1][next - 1])
@@ -668,7 +668,7 @@ def insertGreen(tours, redNodes, greenNodes, redsInSolution, greensInSolution, w
             if greensTabuTagIn[t][green] < iteration:
                 for n1, n2 in path.items():
                     newTotalTime = totalTimes[t]
-                    newProfit = teamScores[t] + scores[green - 1]
+                    newProfit = teamScores[t] + scores[green]
 
                     if n1 not in redsInSolution[t] and n2 != endNode and n1 != startNode:
                         p = path.copy()
@@ -715,11 +715,11 @@ def insertGreen(tours, redNodes, greenNodes, redsInSolution, greensInSolution, w
         for n1, n2 in bestTour.items():
             newTour.append((n1, n2))
 
-        tours[tourExpanded] = newTour
-        greensInSolution[tourExpanded].append(greenInserted)
-        waitingTimes[tourExpanded] = wt
-        totalTimes[tourExpanded] = tmp
-        teamScores[tourExpanded] = profitTour
+        tours[swap[1]] = newTour
+        greensInSolution[swap[1]].append(swap[0])
+        waitingTimes[swap[1]] = wt
+        totalTimes[swap[1]] = tmp
+        teamScores[swap[1]] = profitTour
 
     return tours, waitingTimes, totalTimes, teamScores, swap
 
@@ -750,7 +750,7 @@ def swapGreens(tours, redNodes, greenNodes, redsInSolution, greensInSolution, wa
             for green2 in totalGreenNotInSolution:
                 if greensTabuTagIn[t][green2] < iteration and greensTabuTagOut[green1] < iteration:
                     newTotalTime = totalTimes[t] - service_costs[green1 - 1] + service_costs[green2 - 1]
-                    newProfit = teamScores[t] - scores[green1 - 1] + scores[green2 - 1]
+                    newProfit = teamScores[t] - scores[green1] + scores[green2]
 
                     p = path.copy()
                     p[green2] = p[green1]
@@ -799,12 +799,12 @@ def swapGreens(tours, redNodes, greenNodes, redsInSolution, greensInSolution, wa
         for n1, n2 in bestTour.items():
             newTour.append((n1, n2))
 
-        tours[tourModified] = newTour
-        greensInSolution[tourModified].append(greenInserted)
-        greensInSolution[tourModified].remove(greenRemoved)
-        waitingTimes[tourModified] = wt
-        totalTimes[tourModified] = tmp
-        teamScores[tourModified] = profitTour
+        tours[swap[2]] = newTour
+        greensInSolution[swap[2]].append(swap[0])
+        greensInSolution[swap[2]].remove(swap[1])
+        waitingTimes[swap[2]] = wt
+        totalTimes[swap[2]] = tmp
+        teamScores[swap[2]] = profitTour
 
     return tours, waitingTimes, totalTimes, teamScores, swap
 
@@ -821,6 +821,9 @@ def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNo
     print(redsInSolution)
     print(teamTotalTime)
     print(teamScores)
+
+    print("Local Search:")
+    print()
 
     currentSol1 = max(waitingTimes)
     currentSol2 = sum(teamScores.values())
@@ -981,36 +984,35 @@ def localSearch(clusters, tours, service_costs, greenNodes, redNodes, hospitalNo
             if sol1 < currentSol1:
                 currentSol1 = sol1
                 currentSol2 = sol2
+                bestTours = tours.copy()
+                bestTotalTimes = teamTotalTimes.copy()
                 NUMBER_OF_NOT_IMPROVING_SOLUTIONS = 0
-                bestTours = tours
-                bestTotalTimes = teamTotalTimes
             elif sol1 == currentSol1 and sol2 > currentSol2:
                 currentSol1 = sol1
                 currentSol2 = sol2
+                bestTours = tours.copy()
+                bestTotalTimes = teamTotalTimes.copy()
                 NUMBER_OF_NOT_IMPROVING_SOLUTIONS = 0
-                bestTours = tours
-                bestTotalTimes = teamTotalTimes
             else:
                 NUMBER_OF_NOT_IMPROVING_SOLUTIONS += 1
         else:
             if sol2 > currentSol2:
                 currentSol1 = sol1
                 currentSol2 = sol2
+                bestTours = tours.copy()
+                bestTotalTimes = teamTotalTimes.copy()
                 NUMBER_OF_NOT_IMPROVING_SOLUTIONS = 0
-                bestTours = tours
-                bestTotalTimes = teamTotalTimes
             elif sol2 == currentSol2 and sol1 < currentSol1:
                 currentSol1 = sol1
                 currentSol2 = sol2
+                bestTours = tours.copy()
+                bestTotalTimes = teamTotalTimes.copy()
                 NUMBER_OF_NOT_IMPROVING_SOLUTIONS = 0
-                bestTours = tours
-                bestTotalTimes = teamTotalTimes
             else:
                 NUMBER_OF_NOT_IMPROVING_SOLUTIONS += 1
 
         iteration += 1
         CURRENT_OP = changeOp(CURRENT_OP)
-        # print(tours)
 
     print(bestTours)
     print(bestTotalTimes)
